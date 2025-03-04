@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from tools.llm import open_ai_chat_model
 
+from utils.langsmith import langsmith_integration
 from utils.prompt import get_system_prompt, get_relevant_knowledge
 
 # Construct the absolute path to the config.json file.
@@ -15,6 +16,9 @@ __config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.
 with open(__config_path, "r") as file:
     config = json.load(file)
 
+
+# LangSmith Integration.
+langsmith_integration()
 
 
 class Acknowledge(BaseModel):
