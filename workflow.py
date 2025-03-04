@@ -9,14 +9,11 @@ from PIL import Image
 
 from src.agents import PlatformAgent
 
-system = None
-agent = None
 
 class AnalyticState(TypedDict):
     messages: List[Tuple[str, Any]] = []
 
     platform_id: str
-    platform: str
 
     question: str
     answer: str
