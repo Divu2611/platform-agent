@@ -62,11 +62,14 @@ def scrape_page(url, base_url):
         chunk = chunks[i].replace("'",'"')
 
         insert_query = f"""
-            INSERT INTO embeddings (id, chun   k, embedding, created_at, updated_at)
-            VALUES ({uuid.uuid4()}, '{chunk}', {embeddings[i]}, '{datetime.now()}', '{datetime.now()}')
+            INSERT INTO embeddings (id, chunk, embedding, created_at, updated_at, url)
+            VALUES ({uuid.uuid4()}, '{chunk}', {embeddings[i]}, '{datetime.now()}', '{datetime.now()}', '{url}')
         """
 
         create(keyspace="irona", insert_query=insert_query)  # Store the extracted text and embeddings in the database
+        print(f"Inserted chunk {i+1}/{chunk_len} for {url}")
+
+    print()
 
     # Now, visit all extracted links
     for next_link in links:
@@ -85,5 +88,5 @@ def is_valid_url(url, base_url):
 
 
 if __name__ == "__main__":
-    start_url = "https://www.braze.com/docs/compliance_documentation"  # Replace with your target URL
+    start_url = "https://www.braze.com/docs"  # Replace with your target URL
     scrape_page(start_url, start_url)

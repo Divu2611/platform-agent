@@ -1,0 +1,11 @@
+{
+    "Agents" : {
+        "platform" : {
+            "ID" : 1,
+            "Name" : "platform",
+            "LLM" : "open_ai",
+            "LLM Model" : "o3-mini",
+            "Temperature" : 0
+        }
+    }
+}

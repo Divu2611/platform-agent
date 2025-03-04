@@ -1,0 +1,1 @@
+from .open_ai import generate_embeddings as open_ai_embeddings

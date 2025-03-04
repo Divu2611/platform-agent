@@ -3,3 +3,4 @@ text/
 __pycache__/
 *.pyc
 .env
+test.py

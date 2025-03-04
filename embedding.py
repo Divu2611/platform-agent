@@ -1,15 +1,4 @@
-# Importing Python Libraries.
-import os
-# Importing OpenAI library.
-from openai import OpenAI
-
-from dotenv import load_dotenv
-# Load .env file
-load_dotenv()
-
-api_key = os.getenv("open_ai_api_key")
-
-client = OpenAI(api_key=api_key)
+from tools.embeddings import open_ai_embeddings
 
 
 def chunk_text(text, delimiter, chunk_size):
@@ -44,7 +33,7 @@ def get_openai_embeddings(texts, model="text-embedding-ada-002", delimiter='.', 
 
         for chunk in chunks:
             try:
-                response = client.embeddings.create(model=model, input=[chunk])
+                response = open_ai_embeddings([chunk], model)
                 embeddings = response.data[0].embedding
                 all_embeddings.append(embeddings)
             except Exception as e:
