@@ -1,5 +1,3 @@
-# Importing Libraries.
-from dotenv import load_dotenv
 # Importing FastAPI Libraries.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,9 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from .model import Request
 
 from workflow import graph
-
-# Loading the environment variables.
-load_dotenv()
 
 
 app = FastAPI()

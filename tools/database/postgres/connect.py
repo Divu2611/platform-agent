@@ -1,12 +1,12 @@
 # Importing Libraries.
 import os
-from dotenv import load_dotenv
 # Importing DB Libraries.
 from sqlalchemy import create_engine, text, and_
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Loading the environment variables.
-load_dotenv()
+from config import load_env_vars
+load_env_vars()
 
 # Define your PostgreSQL database URL
 host = os.getenv("host").replace("/", "%2F")

@@ -1,11 +1,12 @@
 # Importing Libraries.
 import os
-from dotenv import load_dotenv
 
 from tools.key import open_ai_api_key, langsmith_api_key
 
 # Loading the environment variables.
-load_dotenv()
+from config import load_env_vars
+load_env_vars()
+
 
 # LangSmith Integration.
 def langsmith_integration():

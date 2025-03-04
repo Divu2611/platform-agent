@@ -1,9 +1,9 @@
 # Importing Libraries.
 import os
-from dotenv import load_dotenv
 
 # Loading the environment variables.
-load_dotenv()
+from config import load_env_vars
+load_env_vars()
 
 
 # Defining LangSmith API key.

@@ -1,3 +1,5 @@
+# Importing Python Libraries.
+import os
 import uuid
 # Importing Cassandra Libraries.
 from cassandra.cqlengine import columns
@@ -5,9 +7,13 @@ from cassandra.cqlengine.models import Model
 from cassandra.cqlengine.connection import setup
 from cassandra.cqlengine.management import sync_table
 
+# Loading the environment variables.
+from config import load_env_vars
+load_env_vars()
+
 
 # Setup ORM connection
-setup(["127.0.0.1"], "irona")
+setup([os.getenv("cassandra_host")], "irona")
 
 
 class Embedding(Model):
