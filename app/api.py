@@ -27,13 +27,13 @@ async def read_root() -> dict:
 def graph_stream(request: Request):
     body = request.body
     thread_id = request.thread_id
-    platform_id = request.platform_id
+    client_id = request.client_id
 
     config = {"configurable": {"thread_id": thread_id}}
 
     user_input = {
         "question": body,
-        "platform_id": platform_id
+        "client_id": client_id
     }
 
     for update in graph.stream(

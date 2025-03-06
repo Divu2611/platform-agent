@@ -7,5 +7,12 @@
             "LLM Model" : "gpt-4o",
             "Temperature" : 0
         }
+    },
+    "Tools" : {
+        "search" : {
+            "tavily" : {
+                "max_results" : 1
+            }
+        }
     }
 }

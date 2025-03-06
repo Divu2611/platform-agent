@@ -1,5 +1,6 @@
 # Importing LangChain Libraries.
 from langchain_openai import ChatOpenAI
+from langchain.chat_models import init_chat_model
 
 from tools.key import open_ai_api_key
 
@@ -14,6 +15,12 @@ def get_chat_model(model, temperature):
     if model not in ["o3-mini"]:
         params["temperature"] = temperature
 
-    gpt_chat_model = ChatOpenAI(**params)
+    open_ai_chat_model = ChatOpenAI(**params)
 
-    return gpt_chat_model
+    return open_ai_chat_model
+
+
+# Defining OpenAI LLM model.
+def get_llm(model):
+    open_ai_llm = init_chat_model(model, model_provider="openai")
+    return open_ai_llm
