@@ -11,25 +11,22 @@ def __update_document(data):
 
 
 # Getting the system prompt from the database.
-def get_system_prompt(agent_name, platform_id):
-    # session = SessionLocal()
+def get_system_prompt(agent_name, client_id):
+    session = SessionLocal()
 
-    # agent_details = session.query(
-    #                     Agent
-    #                 ).filter(
-    #                     and_(
-    #                         Agent.agent_name == agent_name,
-    #                         Agent.platform_id == platform_id
-    #                     )
-    #                 ).first()
+    agent_details = session.query(
+                        Agent
+                    ).filter(
+                        and_(
+                            Agent.name == agent_name,
+                            Agent.client_id == client_id
+                        )
+                    ).first()
 
-    # if agent_details:
-    #     system_prompt = agent_details.system_prompt
-    #     system_prompt = __update_document(system_prompt)
+    if agent_details:
+        system_prompt = agent_details.system_prompt
+        system_prompt = __update_document(system_prompt)
 
-    #     session.close()
+        session.close()
 
-    #     return system_prompt
-
-    with open("res/system_prompt.txt", "r") as system_prompt:
-        return system_prompt.read()
+        return system_prompt

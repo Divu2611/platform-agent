@@ -13,7 +13,7 @@ from src.agents import PlatformAgent
 class AnalyticState(TypedDict):
     messages: List[Tuple[str, Any]] = []
 
-    platform_id: str
+    client_id: str
 
     question: str
     answer: str
@@ -21,10 +21,10 @@ class AnalyticState(TypedDict):
 
 def get_answer(state: AnalyticState):
     question = state["question"]
-    platform_id = state["platform_id"]
+    client_id = state["client_id"]
     messages = state["messages"] if "messages" in state else list([state["question"]])
 
-    platform_agent = PlatformAgent(platform_id = platform_id, messages = messages)
+    platform_agent = PlatformAgent(client_id = client_id, messages = messages)
     answer = platform_agent.acknowledge(question)
 
     messages.append((question, answer))

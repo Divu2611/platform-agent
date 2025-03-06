@@ -4,7 +4,7 @@
             "ID" : 1,
             "Name" : "platform",
             "LLM" : "open_ai",
-            "LLM Model" : "o3-mini",
+            "LLM Model" : "gpt-4o",
             "Temperature" : 0
         }
     }

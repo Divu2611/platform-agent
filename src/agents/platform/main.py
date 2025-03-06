@@ -28,19 +28,20 @@ class Acknowledge(BaseModel):
     )
 
 class PlatformAgent:
-    def __init__(self, platform_id, messages):
+    def __init__(self, client_id, messages):
         # Initialize the Agent.
         __agent = config["Agents"]["platform"]
 
 
         # Getting the system prompt.
-        __system_prompt = get_system_prompt(agent_name = __agent["Name"], platform_id = platform_id)
+        __system_prompt = get_system_prompt(agent_name = __agent["Name"], client_id = client_id)
 
         # Getting the relevant information via RAG.
         __relevant_information = get_relevant_knowledge(text = messages)
 
         self.platform_prompt = ChatPromptTemplate.from_messages([
                                         ("system", __system_prompt),
+                                        ("system", __relevant_information),
                                         ("placeholder", "{question}")
                                     ])
 
