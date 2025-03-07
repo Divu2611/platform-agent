@@ -4,9 +4,8 @@ import json
 from pydantic import BaseModel, Field
 # Importing LangChain Libraries.
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.agents import AgentExecutor, create_tool_calling_agent
 
-from tools.llm import open_ai_chat_model, open_ai_llm
+from tools.llm import open_ai_chat_model
 from tools.web import tavily_search_tool
 
 from utils.langsmith import langsmith_integration
@@ -44,8 +43,7 @@ class PlatformAgent:
         self.platform_prompt = ChatPromptTemplate.from_messages([
                                         ("system", __system_prompt),
                                         ("system", __relevant_information),
-                                        ("placeholder", "{question}"),
-                                        ("placeholder", "{agent_scratchpad}")
+                                        ("placeholder", "{question}")
                                     ])
 
 
@@ -59,18 +57,15 @@ class PlatformAgent:
         __temperature = __agent["Temperature"]
 
         __llm_chat_model = f"{__llm}_chat_model"
-        # __llm_model = globals()[__llm_chat_model](model=__model, temperature=__temperature)
-        __llm_model = open_ai_llm(model=__model)
+        __llm_model = globals()[__llm_chat_model](model=__model, temperature=__temperature)
 
-        self.chat_model = __llm_model.bind_tools([self.search_tool])
+        self.chat_model = __llm_model.bind_tools([self.search_tool]).with_structured_output(Acknowledge)
 
 
         # Defining the platform agent.
-        # self.chain = create_tool_calling_agent(self.chat_model, self.search_tool, self.platform_prompt)
-        # self.agent = AgentExecutor(agent = self.chain, tools = self.search_tool, verbose = True)
         self.chain = self.platform_prompt | self.chat_model
 
 
     def acknowledge(self, question) -> Acknowledge:
         response = self.chain.invoke({"question": [("user", question)]})
-        return response.content
+        return response.response
