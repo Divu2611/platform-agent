@@ -1,3 +1,5 @@
+# Importing Python Libraries.
+import uuid
 # Importing FastAPI Libraries.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,10 +28,9 @@ async def read_root() -> dict:
 @app.post("/api/chat")
 def graph_stream(request: Request):
     body = request.body
-    thread_id = request.thread_id
     client_id = request.client_id
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": uuid.uuid4()}}
 
     user_input = {
         "question": body,

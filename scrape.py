@@ -1,47 +1,91 @@
 # Importing Python Libraries.
+import io
+import os
+import re
 import time
-import uuid
+import pickle
+import PyPDF2
+import hashlib
+import logging
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
-from embedding import get_openai_embeddings
+from embedding import get_embeddings
 from tools.database import create
 
-visited_urls = set()
 
-def normalize_url(url):
-    """
-    Normalizes the URL by removing any trailing slashes.
-    """
-    return url.rstrip('/')
+def setup_logger(name, log_file, level):
+    """Function to create a logger for different log levels."""
+    handler = logging.FileHandler(log_file)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    
+    return logger
+
+# Creating loggers for different log levels
+info_logger = setup_logger("info_logger", "logs/data/info.log", logging.INFO)
+warning_logger = setup_logger("warning_logger", "logs/data/warning.log", logging.WARNING)
+error_logger = setup_logger("error_logger", "logs/data/error.log", logging.ERROR)
 
 
-def scrape_page(url, base_url):
-    """
-    Scrapes a webpage and extracts relevant text content while ignoring navigation and sidebars,
-    but still follows links from those sections.
-    """
-    url = normalize_url(url)
-    base_url = normalize_url(base_url)
+def save_set(data_set, file_path):
+    """Save a set to a file using pickle."""
+    with open(file_path, "wb") as file:
+        pickle.dump(data_set, file)
 
-    if url in visited_urls:
-        return
-
-    visited_urls.add(url)
-
+def load_set(file_path):
+    """Load a set from a file using pickle."""
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to fetch {url}: {e}")
-        return
+        with open(file_path, "rb") as file:
+            return pickle.load(file)
+    except (FileNotFoundError, EOFError):
+        return set()
 
-    soup = BeautifulSoup(response.text, 'html.parser')
+# Define file paths for persistence
+visited_urls_file = "visited_urls.pkl"
+visited_hashes_file = "visited_hashes.pkl"
 
-    # Extract and store all links first (even from navbars/sidebars)
-    links = [urljoin(base_url, a['href']) for a in soup.find_all('a', href=True) if is_valid_url(urljoin(base_url, a['href']), base_url)]
+# Load visited sets from disk (or initialize empty sets)
+visited_urls = load_set(visited_urls_file)
+visited_hashes = load_set(visited_hashes_file)
+
+
+checkpoint_file = "checkpoint.txt"
+urls_file = "unique_urls.txt"
+
+
+def save_checkpoint(index):
+    with open(checkpoint_file, "w") as f:
+        f.write(str(index))
+
+
+def get_page_hash(content):
+    """Generate a hash of the page content to identify duplicate pages."""
+    return hashlib.md5(content.encode('utf-8')).hexdigest()
+
+def fetch_webpage(url):
+    """Fetch webpage content and extract all links."""
+    response = requests.get(url)
+    if response.status_code != 200:
+        error_logger.error(f"Failed to fetch webpage {url}")
+        return None
+    
+    soup = BeautifulSoup(response.text, "html.parser")
+    page_hash = get_page_hash(response.text)
+
+    # Avoid duplicate content
+    if page_hash in visited_hashes:
+        warning_logger.warning(f"Duplicate page found: {url}")
+        return None
+
+    visited_hashes.add(page_hash)
+    save_set(visited_hashes, visited_hashes_file)
 
     # Remove unwanted sections for text extraction
     for unwanted in soup.select(".nav, #nav, nav, .nav_bottom, #nav_bottom, nav_bottom, .nav-item, #nav-item, nav-item, .header, #header, header, .footer, #footer, footer, .sidebar, #sidebar, sidebar, .navbar, #navbar, navbar, .menu, #menu, menu, .breadcrumbs, #breadcrumbs, breadcrumbs, .pagination, #pagination, pagination"):
@@ -52,29 +96,89 @@ def scrape_page(url, base_url):
 
     page_text = main_content.get_text(separator=" ", strip=True) if main_content else soup.get_text(separator=" ", strip=True)
 
-    embeddings, chunks = get_openai_embeddings([page_text])  # Generate embeddings for the extracted text
-    chunk_len = len(chunks)
+    return page_text
 
-    for i in range(chunk_len):
-        if not chunks[i]:
+
+def fetch_pdf(url):
+    """Fetch PDF content and extract text."""
+    response = requests.get(url)
+    if response.status_code != 200:
+        error_logger.error(f"Failed to fetch PDF {url}")
+        return None
+    
+    pdf_reader = PyPDF2.PdfReader(io.BytesIO(response.content))
+    text = ""
+    for page in range(len(pdf_reader.pages)):
+        text += pdf_reader.pages[page].extract_text()
+    
+    return text
+
+
+def load_checkpoint():
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, "r") as f:
+            return int(f.read().strip())
+    return 0
+
+
+def load_urls(file_path):
+    with open(file_path, "r") as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def scrape_page():
+    urls = load_urls(urls_file)
+    start_index = load_checkpoint()
+
+    for i in range(start_index, len(urls)):
+        url = urls[i]
+
+        if url in visited_urls:
+            warning_logger.warning(f"Skipping already scraped URL: {url}")
             continue
 
-        chunk = chunks[i].replace("'",'"')
+        page_text = fetch_pdf(url) if url.endswith(".pdf") else fetch_webpage(url)
 
-        insert_query = f"""
-            INSERT INTO embeddings (id, chunk, embedding, created_at, updated_at, url)
-            VALUES ({uuid.uuid4()}, '{chunk}', {embeddings[i]}, '{datetime.now()}', '{datetime.now()}', '{url}')
-        """
+        if page_text:
+            start_time = time.time()
 
-        create(keyspace="irona", insert_query=insert_query)  # Store the extracted text and embeddings in the database
-        print(f"Inserted chunk {i+1}/{chunk_len} for {url}")
+            embeddings, chunks = get_embeddings([page_text])  # Generate embeddings for the extracted text
+            if not embeddings or not chunks:
+                continue
 
-    print()
+            chunk_len = len(chunks)
 
-    # Now, visit all extracted links
-    for next_link in links:
-        scrape_page(next_link, base_url)
-        time.sleep(1)  # Respectful crawling delay
+            for j in range(chunk_len):
+                insert_start_time = time.time()
+
+                if not chunks[j] or not embeddings[j]:
+                    continue
+
+                chunk = chunks[j].replace("'",'"').replace("{%%", "{%").replace("%%}", "%}").replace(":", "::")
+                chunk = re.sub(r"%\((\w+)\)s", r":\1", chunk)
+
+                insert_query = f"""
+                    INSERT INTO embedding_doc (chunk, embedding, url, created_at, updated_at)
+                    VALUES ('{chunk}', '{embeddings[j]}', '{url}', '{datetime.now()}', '{datetime.now()}')
+                """
+
+                create(insert_query = insert_query)  # Store the extracted text and embeddings in the database
+
+                insert_end_time = time.time()
+                insert_elapsed_time = insert_end_time - insert_start_time
+                info_logger.info(f"Inserted chunk {j+1}/{chunk_len} for {url} in {insert_elapsed_time:.2f} seconds")
+
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            visited_urls.add(url)
+            save_set(visited_urls, visited_urls_file)
+
+            info_logger.info(f"Scraped {url} in {elapsed_time:.2f} seconds")
+        else:
+            warning_logger.warning(f"Failed to scrape {url} due to missing content")
+
+        save_checkpoint(i + 1)
 
 
 def is_valid_url(url, base_url):
@@ -88,5 +192,4 @@ def is_valid_url(url, base_url):
 
 
 if __name__ == "__main__":
-    start_url = "https://www.braze.com/docs"  # Replace with your target URL
-    scrape_page(start_url, start_url)
+    scrape_page()

@@ -1,10 +1,10 @@
 # Importing libraries.
 import numpy as np
 
+from tools.database import SessionLocal
 from tools.embeddings import open_ai_embeddings
 
 from models import Embedding
-
 
 # Updating the document - replacing '{' with '{{'.
 def __update_document(data):
@@ -12,6 +12,22 @@ def __update_document(data):
     data = data.replace("{", "{{").replace("}", "}}")
 
     return data
+
+
+# Splitting the text into chunks.
+def __split_text(text, chunk_size, overlap):
+    chunks = []
+    start = 0
+    end = 0
+
+    while end < len(text):
+        end = start + chunk_size
+        if end > len(text):
+            end = len(text)
+        chunks.append(text[start:end])
+        start = end - overlap  # Overlap chunks
+
+    return chunks
 
 
 # Generating embeddings for the text chunks.
@@ -27,32 +43,31 @@ def __generate_embeddings(text_chunks, model, chunk_size, overlap):
 
 
 # Getting the relevant knowledge from the embeddings.
-def get_relevant_knowledge(text, model="text-embedding-ada-002", limit=5, similarity_threshold=0.8, chunk_size=500, overlap=50):
-    # Generate query embedding
+def get_relevant_knowledge(text, model = "text-embedding-ada-002", limit : int = 10, similarity_threshold : float = 0.6, chunk_size : int = 500, overlap : int = 50):
+    session = SessionLocal()
+
     if len(text) > 1:
         text = [[item for subtext in text for item in subtext]]
 
     query_embedding = __generate_embeddings(text, model, chunk_size, overlap)
     query_embedding = np.array(query_embedding).flatten()
 
-    # Fetch relevant embeddings using ORM
-    embeddings = Embedding.objects.only(
-                    ["url", "chunk", "embedding"]
-                ).all()
-    # Compute cosine similarity manually
-    relevant_embeddings = []
-    for embedding in embeddings:
-        stored_embedding = np.array(embedding.embedding, dtype=np.float32)  # Ensure stored embeddings are in a numerical format
-        if(len(stored_embedding) == 0):
-            continue
+    embeddings = session.query(
+                Embedding,
+                Embedding.embedding.cosine_distance(query_embedding).label("distance")
+            ).filter(
+                Embedding.embedding.cosine_distance(query_embedding) < similarity_threshold
+            ).order_by(
+                "distance"
+            ).limit(
+                limit
+            ).all()
 
-        cosine_similarity = np.dot(query_embedding, stored_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(stored_embedding))
+    if embeddings:
+        relevant_knowledge = [__update_document(embedding[0].chunk) for embedding in embeddings]
+        for embedding in embeddings:
+            print(f"\n\n{embedding[0].url}\n\n{embedding[0].chunk}\n\n")
+        print(f"\n\n{relevant_knowledge}\n\n")
+        session.close()
 
-        if cosine_similarity >= similarity_threshold:
-            relevant_embeddings.append((cosine_similarity, embedding.chunk))
-
-    # Sort by similarity score (highest first) and limit results
-    relevant_embeddings.sort(reverse=True, key=lambda x: x[0])
-    relevant_knowledge = [__update_document(item[1]) for item in relevant_embeddings[:limit]]
-
-    return relevant_knowledge
+        return relevant_knowledge

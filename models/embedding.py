@@ -1,31 +1,18 @@
-# Importing Python Libraries.
-import os
-import uuid
-# Importing Cassandra Libraries.
-from cassandra.cqlengine import columns
-from cassandra.cqlengine.models import Model
-from cassandra.cqlengine.connection import setup
-from cassandra.cqlengine.management import sync_table
+# Importing DB Libraries.
+from pgvector.sqlalchemy import Vector 
+from sqlalchemy import Column, Integer, String, DateTime
 
-# Loading the environment variables.
-from config import load_env_vars
-load_env_vars()
+from tools.database import Base
 
 
-# Setup ORM connection
-setup([os.getenv("cassandra_host")], "irona")
+# Defining the Embedding Class.
+class Embedding(Base):
+    __tablename__ = "embedding_doc_bkp"
+    __table_args__ = {"schema": "public"}
 
-
-class Embedding(Model):
-    __keyspace__ = "irona"
-    __table_name__ = "embeddings"
-
-    id = columns.UUID(primary_key=True, default=uuid.uuid4)
-    chunk = columns.Text()
-    created_at = columns.DateTime()
-    updated_at = columns.DateTime()
-    url = columns.Text()
-    embedding = columns.List(columns.Float)
-
-# Sync model with the Cassandra table
-sync_table(Embedding)
+    id = Column(Integer, primary_key=True, index=True)
+    chunk = Column(String, nullable=False)
+    embedding = Column(Vector, nullable=False)
+    url = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)

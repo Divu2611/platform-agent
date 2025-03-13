@@ -4,14 +4,14 @@
             "ID" : 1,
             "Name" : "platform",
             "LLM" : "open_ai",
-            "LLM Model" : "gpt-4o",
+            "LLM Model" : "o3-mini",
             "Temperature" : 0
         }
     },
     "Tools" : {
         "search" : {
             "tavily" : {
-                "max_results" : 1
+                "max_results" : 5
             }
         }
     }
