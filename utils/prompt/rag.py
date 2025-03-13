@@ -65,9 +65,7 @@ def get_relevant_knowledge(text, model = "text-embedding-ada-002", limit : int =
 
     if embeddings:
         relevant_knowledge = [__update_document(embedding[0].chunk) for embedding in embeddings]
-        for embedding in embeddings:
-            print(f"\n\n{embedding[0].url}\n\n{embedding[0].chunk}\n\n")
-        print(f"\n\n{relevant_knowledge}\n\n")
+
         session.close()
 
         return relevant_knowledge
