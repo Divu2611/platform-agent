@@ -1,12 +1,26 @@
 # Importing Python Libraries.
+import os
 import uuid
 # Importing FastAPI Libraries.
-from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import RedirectResponse,FileResponse
 
-from .model import Request
+
+from .model import LoginRequest, Request
+from app.auth.auth_bearer import JWTBearer
+from app.auth.auth_handler import sign_jwt
 
 from workflow import graph
+
+# Loading the environment variables.
+from config import load_env_vars
+load_env_vars()
+
+# Getting authorized username and password.
+auth_user = os.getenv("auth_user")
+auth_password = os.getenv("auth_password")
 
 
 app = FastAPI()
@@ -20,13 +34,42 @@ app.add_middleware(
 )
 
 
+# Serve ui files
+app.mount("/ui", StaticFiles(directory="ui"), name="ui")
+
+
 @app.get("/")
-async def read_root() -> dict:
-    return {"message": "Welcome to Platform!"}
+def read_root() -> dict:
+    return RedirectResponse(url="/view/login")
 
 
-@app.post("/api/chat")
-def graph_stream(request: Request):
+@app.get("/view/login")
+def login_page():
+    return FileResponse("ui/login.html")
+
+
+@app.get("/view/chat")
+async def chat_page():
+    return FileResponse("ui/chat.html")
+
+
+def check_user(email: str, password: str):
+    if email == auth_user and password == auth_password:
+        return True
+    return False
+
+@app.post("/api/login")
+def login(request: LoginRequest):
+    email = request.email
+    password = request.password
+
+    if check_user(email, password):
+        return sign_jwt(email)
+    raise HTTPException(status_code=401, detail="User not authenticated.")
+
+
+@app.post("/api/chat", dependencies=[Depends(JWTBearer())])
+async def graph_stream(request: Request):
     body = request.body
     client_id = request.client_id
 
