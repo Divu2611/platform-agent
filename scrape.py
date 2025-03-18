@@ -137,6 +137,10 @@ def scrape_page():
             warning_logger.warning(f"Skipping already scraped URL: {url}")
             continue
 
+        if '.xlsx' in url or '.xls' in url or '.csv' in url or '.rtf' in url or '.png' in url or '.jpg' in url or '.jpeg' in url:
+            warning_logger.warning(f"Skipping unsupported URL: {url}")
+            continue
+
         page_text = fetch_pdf(url) if url.endswith(".pdf") else fetch_webpage(url)
 
         if page_text:
