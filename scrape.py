@@ -13,7 +13,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 from embedding import get_embeddings
-from tools.database import create
+from tools.database import create, retrieve
 
 
 def setup_logger(name, log_file, level):
@@ -137,6 +137,10 @@ def scrape_page():
             warning_logger.warning(f"Skipping already scraped URL: {url}")
             continue
 
+        if '.xlsx' in url or '.xls' in url or '.csv' in url or '.rtf' in url or '.png' in url or '.jpg' in url or '.jpeg' in url:
+            warning_logger.warning(f"Skipping unsupported URL: {url}")
+            continue
+
         page_text = fetch_pdf(url) if url.endswith(".pdf") else fetch_webpage(url)
 
         if page_text:
@@ -148,6 +152,15 @@ def scrape_page():
 
             chunk_len = len(chunks)
 
+            insert_retrieve_resource_query = f"""
+                INSERT INTO resource (location, agent_id)
+                VALUES ('{url}', 12)
+                RETURNING id;
+            """
+
+            rows, columns = retrieve(retrieve_query = insert_retrieve_resource_query)
+            resource_id = rows[0][0]
+
             for j in range(chunk_len):
                 insert_start_time = time.time()
 
@@ -157,12 +170,12 @@ def scrape_page():
                 chunk = chunks[j].replace("'",'"').replace("{%%", "{%").replace("%%}", "%}").replace(":", "::")
                 chunk = re.sub(r"%\((\w+)\)s", r":\1", chunk)
 
-                insert_query = f"""
-                    INSERT INTO embedding_doc (chunk, embedding, url, created_at, updated_at)
-                    VALUES ('{chunk}', '{embeddings[j]}', '{url}', '{datetime.now()}', '{datetime.now()}')
+                insert_embeddings_query = f"""
+                    INSERT INTO embedding (resource_id, chunk, embedding)
+                    VALUES ('{resource_id}', '{chunk}', '{embeddings[j]}')
                 """
 
-                create(insert_query = insert_query)  # Store the extracted text and embeddings in the database
+                create(insert_query = insert_embeddings_query)
 
                 insert_end_time = time.time()
                 insert_elapsed_time = insert_end_time - insert_start_time

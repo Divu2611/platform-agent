@@ -1,2 +1,3 @@
-from .agent import Agent
-from .embedding import Embedding
+from .agents import Agent
+from .embeddings import Embedding
+from .resources import Resource
