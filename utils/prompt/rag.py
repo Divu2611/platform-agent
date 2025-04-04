@@ -1,7 +1,7 @@
 # Importing libraries.
 import numpy as np
 
-from tools.database import SessionLocal
+from tools.database import SessionLocal, and_
 from tools.embeddings import open_ai_embeddings
 
 from models import Embedding
@@ -43,7 +43,7 @@ def __generate_embeddings(text_chunks, model, chunk_size, overlap):
 
 
 # Getting the relevant knowledge from the embeddings.
-def get_relevant_knowledge(text, model = "text-embedding-ada-002", limit : int = 10, similarity_threshold : float = 0.6, chunk_size : int = 500, overlap : int = 50):
+def get_relevant_knowledge(text, resource_ids, model = "text-embedding-ada-002", limit : int = 10, similarity_threshold : float = 0.6, chunk_size : int = 500, overlap : int = 50):
     session = SessionLocal()
 
     if len(text) > 1:
@@ -56,7 +56,10 @@ def get_relevant_knowledge(text, model = "text-embedding-ada-002", limit : int =
                 Embedding,
                 Embedding.embedding.cosine_distance(query_embedding).label("distance")
             ).filter(
-                Embedding.embedding.cosine_distance(query_embedding) < similarity_threshold
+                and_(
+                    Embedding.embedding.cosine_distance(query_embedding) < similarity_threshold,
+                    Embedding.resource_id.in_(resource_ids)
+                )
             ).order_by(
                 "distance"
             ).limit(

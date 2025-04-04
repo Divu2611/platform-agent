@@ -10,6 +10,7 @@ from tools.web import tavily_search_tool
 
 from utils.langsmith import langsmith_integration
 from utils.prompt import get_system_prompt, get_relevant_knowledge
+from utils import get_resource
 
 # Construct the absolute path to the config.json file.
 __config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../config/config.json"))
@@ -40,7 +41,10 @@ class PlatformAgent:
         # Getting the relevant information via RAG.
         if not messages:
             messages = [question]
-        __relevant_information = get_relevant_knowledge(text = messages)
+        # Getting the resource_ids used by the agent.
+        agent_id = __agent["ID"]
+        resource_ids = get_resource(agent_id)
+        __relevant_information = get_relevant_knowledge(text = messages, resource_ids = resource_ids)
 
         self.platform_prompt = ChatPromptTemplate.from_messages([
                                         ("system", __system_prompt),
