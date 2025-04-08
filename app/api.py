@@ -5,8 +5,10 @@ import asyncio
 # Importing FastAPI Libraries.
 from sse_starlette import EventSourceResponse
 from fastapi.responses import StreamingResponse
-from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Body, Depends
+
+from app.auth.auth_bearer import JWTBearer
 
 from .model import NewChatRequest, NewChatResponse, NewMessageRequest, NewMessageResponse, ConversationRequest, MessagesResponse
 
@@ -89,12 +91,12 @@ def create_new_message(new_message_request: NewMessageRequest) -> NewMessageResp
         raise HTTPException(status_code=500, detail=f"Error creating new message: {e}")
 
 
-@app.post("/api/v1/chat/{chat_id}")
+@app.post("/api/v1/chat/{chat_id}", dependencies=[Depends(JWTBearer())])
 async def graph_stream(chat_id: str, request: ConversationRequest):
     body = request.body
     client_id = request.client_id
 
-    chat_id = chat_id if chat_id is not '1' else uuid.uuid4()
+    chat_id = chat_id if chat_id != '1' else uuid.uuid4()
     config = {"configurable": {"thread_id": chat_id}}
 
     user_input = {
