@@ -1,10 +1,12 @@
 # Importing Libraries.
 import os
 import json
+import uuid
 from pydantic import BaseModel, Field
 # Importing LangChain Libraries.
 from langchain_core.prompts import ChatPromptTemplate
 
+from tools.database import create
 from tools.llm import open_ai_chat_model
 from tools.web import tavily_search_tool
 
@@ -69,9 +71,27 @@ class PlatformAgent:
 
 
         # Defining the platform agent.
-        self.chain = self.platform_prompt | self.chat_model
+        run_id = str(uuid.uuid4())
+        self.__trace(client_id = client_id, run_id = run_id, agent_id = __agent["ID"])
+        # Creating the chain.
+        self.chain = (self.platform_prompt | self.chat_model).with_config({"run_id": run_id})
 
 
     def acknowledge(self, question) -> Acknowledge:
         response = self.chain.invoke({"question": [("user", question)]})
         return response.response
+
+
+    def __trace(self, client_id: int, run_id: str, agent_id: int):
+        """Trace the understanding agent"""
+
+        try:
+            # Create a new trace in the database
+            insert_query = f'''
+                INSERT INTO public.agent_run_history(client_id, run_id, agent_id)
+                VALUES ({client_id}, '{run_id}', {agent_id})
+            '''
+
+            create(insert_query = insert_query)
+        except Exception as exception:
+            raise exception

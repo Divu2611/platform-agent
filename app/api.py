@@ -1,10 +1,6 @@
 # Importing Python Libraries.
-import json
 import uuid
-import asyncio
 # Importing FastAPI Libraries.
-from sse_starlette import EventSourceResponse
-from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Body, Depends
 
@@ -97,39 +93,16 @@ async def graph_stream(chat_id: str, request: ConversationRequest):
     client_id = request.client_id
 
     chat_id = chat_id if chat_id != '1' else uuid.uuid4()
-    config = {"configurable": {"thread_id": chat_id}}
+
+    run_id = str(uuid.uuid4())
+    config = {"run_id": run_id, "configurable": {"thread_id": chat_id}}
+
+    trace(client_id = client_id, run_id = run_id, agent_id = 0)
 
     user_input = {
         "initial_question": body,
         "client_id": client_id
     }
-
-    # add_message(thread_id=thread_id, source="user", message=body, type="text")
-
-    # async def generate():
-    #     output = graph.invoke(user_input, config=config)
-
-    #     response = output["answer"]
-    #     add_message(thread_id=thread_id, source="platform agent", message=response, type="text")
-
-    #     words = response.split()
-    #     for word in words:
-    #         yield f"data:{word}\n"
-    #         await asyncio.sleep(0.05)
-    #     for update in graph.astream(
-    #         user_input,
-    #         config=config,
-    #         stream_mode="updates",
-    #     ):
-    #         if "get_answer" in update:
-    #             response = update['get_answer']['answer']
-    #             add_message(thread_id=thread_id, source="platform agent", message=response, type="text")
-
-    #             words = response.split()
-    #             for word in words:
-    #                 yield f"data:{word}\n"
-    # return EventSourceResponse(generate())
-    # return StreamingResponse(generate(), media_type="text/event-stream")
 
     for update in graph.stream(
         user_input,
@@ -138,7 +111,6 @@ async def graph_stream(chat_id: str, request: ConversationRequest):
     ):
         if "get_answer" in update:
             response = update['get_answer']['answer']
-            # add_message(thread_id=thread_id, source="platform agent", message=response, type="text")
             return response
 
 
@@ -163,44 +135,14 @@ def get_chat_messages(chat_id: str) -> MessagesResponse:
         raise HTTPException(status_code=500, detail=f"Error retrieving chat messages: {e}")
 
 
-def get_graph_state(config):
-    return graph.get_state(config = config)
-
-def get_next_runnable(config):
-    return get_graph_state(config=config).next
-
-
-# def add_message(thread_id: int, source: str, message: str, type: str):
-    message = message.replace("'", "''").replace("\n", " ").replace(":", " - ")
-    source = source.replace("'", "''")
-    type = type.replace("'", "''")
-
-    query = f"""
-        INSERT INTO message (
-            thread_id,
-            source,
-            content,
-            type
-        )
-        VALUES ({thread_id}, '{source}', '{message}', '{type}')
-    """
-
+def trace(client_id: int, run_id: str, agent_id: int):
     try:
-        create(insert_query = query)
+        insert_query = f'''
+            INSERT INTO public.agent_run_history(client_id, run_id, agent_id)
+            VALUES ({client_id}, '{run_id}', {agent_id})
+        '''
 
-        return {
-            'status_code' : 200,
-            'detail' : "Message added successfully!"
-        }
-    except HTTPException as exception:
-        print(exception)
-        return {
-            'status_code' : 400,
-            'detail' : f"Failed to add message: {exception}"
-        }
+        create(insert_query = insert_query)
     except Exception as exception:
-        print(exception)
-        return {
-            'status_code' : 500,
-            'detail' : f"Failed to add message: {exception}"
-        }
+        print(f"Error inserting agent run history: {exception}")
+        raise HTTPException(status_code=500, detail=f"Error inserting agent run history: {exception}")
